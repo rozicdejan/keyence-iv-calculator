@@ -3,85 +3,90 @@ from PIL import Image
 import os
 import pandas as pd
 
-def calculate_resolution(fov_h, image_width=1280):
-    """Calculates resolution in mm/pixel and pixels/mm."""
-    resolution_mm_per_pixel = fov_h / image_width
-    resolution_pixels_per_mm = 1 / resolution_mm_per_pixel
+# Define constants for better readability and maintainability
+PICTURES_FOLDER = "Pictures"
+IMAGE_WIDTH_DEFAULT = 1280 # Default for H resolution
+IMAGE_HEIGHT_DEFAULT = 960  # Default for V resolution
+
+# --- Calculation Functions ---
+
+def calculate_resolution_metrics(fov_mm, pixel_dimension):
+    """Calculates resolution in mm/pixel and pixels/mm for a given dimension."""
+    if pixel_dimension == 0:
+        return 0.0, 0.0 # Avoid division by zero
+    resolution_mm_per_pixel = fov_mm / pixel_dimension
+    resolution_pixels_per_mm = 1 / resolution_mm_per_pixel if resolution_mm_per_pixel != 0 else 0.0
     return resolution_mm_per_pixel, resolution_pixels_per_mm
 
-def calculate_mounting_distance(target_fov, min_fov, max_fov, min_dist, max_dist):
-    """Estimates mounting distance for a given FOV."""
-    slope = (max_fov - min_fov) / (max_dist - min_dist)
-    distance = ((target_fov - min_fov) / slope) + min_dist
-    return distance
-
-def calculate_fov_from_distance(distance, min_fov, max_fov, min_dist, max_dist):
-    """Estimates FOV for a given mounting distance."""
-    slope = (max_fov - min_fov) / (max_dist - min_dist)
-    fov = (distance - min_dist) * slope + min_fov
-    return fov
-
-def calculate_fov_x_y(distance, min_fov_x, max_fov_x, min_fov_y, max_fov_y, min_dist, max_dist):
-    """Calculates FOV in X (horizontal) and Y (vertical) directions."""
-    slope_x = (max_fov_x - min_fov_x) / (max_dist - min_dist)
-    slope_y = (max_fov_y - min_fov_y) / (max_dist - min_dist)
+def linear_interpolation(value, min_val_in, max_val_in, min_val_out, max_val_out):
+    """Performs linear interpolation."""
+    if (max_val_in - min_val_in) == 0:
+        return min_val_out # Avoid division by zero, return min_val_out if range is zero
     
-    fov_x = (distance - min_dist) * slope_x + min_fov_x
-    fov_y = (distance - min_dist) * slope_y + min_fov_y
+    # Clamp the input value to stay within the known range
+    value = max(min_val_in, min(max_val_in, value))
     
-    return fov_x, fov_y
+    # Calculate the interpolated value
+    return min_val_out + (value - min_val_in) * (max_val_out - min_val_out) / (max_val_in - min_val_in)
 
-# Camera Options
-cameras = {
-    "IV3-G500CA": {
-        "image": "iv4-g500ca.png",
-        "min_fov_x": 22, "max_fov_x": 1184,
-        "min_fov_y": 16, "max_fov_y": 888,
-        "min_dist": 50, "max_dist": 3000,
-        "specs": {
-             "Type": "Standard",
-            "Installed Distance": "50 mm or more",
-            "Field of View (50 mm)": "22 (H) × 16 (V) mm",
-            "Field of View (3000 mm)": "1184 (H) × 888 (V) mm",
-            "Image Sensor": "1/2.9 inch colour CMOS",
-            "Resolution": "1280 (H) × 960 (V)",
-            "Focus Adjustment": "Auto",
-            "Exposure Time": "12 μs to 9 ms",
-            "Illumination": "White LED",
-            "Lighting Method": "Pulse /continuous lighting is switchable",
-            "Enclosure Rating": "IP67",
-            "Temperature Range": "0 to +50°C (No freezing)",
-            "Relative Humidity": "35 to 85% RH (No condensation)",
-            "Vibration Resistance": "10 to 55 Hz; double amplitude 1.5 mm, 2 hours in each direction",
-            "Shock Resistance": "500 m/s², 3 times in each of the 6 directions",
-            "Material": "Main unit case: Zinc die-casting, Front cover: Acrylic, Operation indicator cover: TPU",
-            "Weight": "Approx. 75 g (without AI Lighting), Approx. 225 g (with AI Lighting)"
-        }
-    },
-    "IV3-G600MA": {
-        "image": "iv4-g600ca.png",
-        "min_fov_x": 51, "max_fov_x": 2730,
-        "min_fov_y": 38, "max_fov_y": 2044,
-        "min_dist": 50, "max_dist": 3000,
-        "specs": {
-            "Type": "Wide view",
-            "Installed Distance": "50 mm or more",
-            "Field of View (50 mm)": "51 (H) × 38 (V) mm",
-            "Field of View (3000 mm)": "2730 (H) × 2044 (V) mm",
-            "Image Sensor": "1/2.9 inch monochrome CMOS",
-            "Resolution": "1280 (H) × 960 (V)",
-            "Focus Adjustment": "Auto",
-            "Exposure Time": "12 μs to 9 ms",
-            "Illumination": "Infrared LED",
-            "Lighting Method": "Pulse lighting",
-            "Enclosure Rating": "IP67",
-            "Temperature Range": "0 to +50°C (No freezing)",
-            "Vibration Resistance": "10 to 55 Hz; amplitude 1.5 mm",
-            "Shock Resistance": "500 m/s², 3 times in each direction",
-            "Weight": "Approx. 75 g (without AI Lighting)"
+# --- Camera Data ---
+# Use st.cache_data to cache this dictionary as it's static
+@st.cache_data
+def get_camera_data():
+    return {
+        "IV3-G500CA": {
+            "image": "iv4-g500ca.png",
+            "min_fov_x": 22, "max_fov_x": 1184,
+            "min_fov_y": 16, "max_fov_y": 888,
+            "min_dist": 50, "max_dist": 3000,
+            "resolution_h": 1280, # Explicitly add resolution dimensions
+            "resolution_v": 960,
+            "specs": {
+                "Type": "Standard",
+                "Installed Distance": "50 mm or more",
+                "Field of View (50 mm)": "22 (H) × 16 (V) mm",
+                "Field of View (3000 mm)": "1184 (H) × 888 (V) mm",
+                "Image Sensor": "1/2.9 inch colour CMOS",
+                "Resolution": "1280 (H) × 960 (V)",
+                "Focus Adjustment": "Auto",
+                "Exposure Time": "12 μs to 9 ms",
+                "Illumination": "White LED",
+                "Lighting Method": "Pulse /continuous lighting is switchable",
+                "Enclosure Rating": "IP67",
+                "Temperature Range": "0 to +50°C (No freezing)",
+                "Relative Humidity": "35 to 85% RH (No condensation)",
+                "Vibration Resistance": "10 to 55 Hz; double amplitude 1.5 mm, 2 hours in each direction",
+                "Shock Resistance": "500 m/s², 3 times in each of the 6 directions",
+                "Material": "Main unit case: Zinc die-casting, Front cover: Acrylic, Operation indicator cover: TPU",
+                "Weight": "Approx. 75 g (without AI Lighting), Approx. 225 g (with AI Lighting)"
+            }
+        },
+        "IV3-G600MA": {
+            "image": "iv4-g600ca.png",
+            "min_fov_x": 51, "max_fov_x": 2730,
+            "min_fov_y": 38, "max_fov_y": 2044,
+            "min_dist": 50, "max_dist": 3000,
+            "resolution_h": 1280, # Explicitly add resolution dimensions
+            "resolution_v": 960,
+            "specs": {
+                "Type": "Wide view",
+                "Installed Distance": "50 mm or more",
+                "Field of View (50 mm)": "51 (H) × 38 (V) mm",
+                "Field of View (3000 mm)": "2730 (H) × 2044 (V) mm",
+                "Image Sensor": "1/2.9 inch monochrome CMOS",
+                "Resolution": "1280 (H) × 960 (V)",
+                "Focus Adjustment": "Auto",
+                "Exposure Time": "12 μs to 9 ms",
+                "Illumination": "Infrared LED",
+                "Lighting Method": "Pulse lighting",
+                "Enclosure Rating": "IP67",
+                "Temperature Range": "0 to +50°C (No freezing)",
+                "Vibration Resistance": "10 to 55 Hz; amplitude 1.5 mm",
+                "Shock Resistance": "500 m/s², 3 times in each direction",
+                "Weight": "Approx. 75 g (without AI Lighting)"
+            }
         }
     }
-}
 
 # Add custom CSS for fixed footer
 footer_html = """
@@ -104,61 +109,101 @@ footer_html = """
 </div>
 """
 
-# Streamlit App UI
+# --- Streamlit App UI ---
 st.set_page_config(page_title="Keyence Camera Calculator", layout="wide")
 st.title("🔍 Keyence Camera Resolution & Mounting Distance Calculator")
 
-# Camera Selection
+cameras = get_camera_data()
 display_camera = st.selectbox("Select Camera Model:", list(cameras.keys()))
 camera = cameras[display_camera]
-#st.write(camera)
+
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    # User options
-    calculate_fov = st.checkbox("Calculate FOV from Mounting Distance")
-    calculate_distance = st.checkbox("Calculate Mounting Distance for Target FOV")
+    st.header("Calculations")
 
-    # User inputs
-    if calculate_distance:
-        target_fov = st.number_input("Enter Desired Horizontal FOV (mm):", min_value=camera["min_fov_x"], max_value=camera["max_fov_x"], value=100, step=5)
-        distance = calculate_mounting_distance(target_fov, camera["min_fov_x"], camera["max_fov_x"], camera["min_dist"], camera["max_dist"])
-        st.success(f"📏 Required Mounting Distance: {distance:.2f} mm")
+    # Primary Input: Mounting Distance
+    current_distance = st.number_input(
+        "Enter Mounting Distance (mm) for FOV & Resolution calculations:",
+        min_value=camera["min_dist"],
+        max_value=camera["max_dist"],
+        value=100, # Default to 100mm as per your initial request
+        step=5,
+        help=f"Enter the distance from the camera to the target. Min: {camera['min_dist']}mm, Max: {camera['max_dist']}mm."
+    )
 
-    if calculate_fov:
-        distance = st.number_input("Enter Mounting Distance (mm):", min_value=camera["min_dist"], max_value=camera["max_dist"], value=250, step=10)
-        fov_h = calculate_fov_from_distance(distance, camera["min_fov_x"], camera["max_fov_x"], camera["min_dist"], camera["max_dist"])
-        fov_x, fov_y = calculate_fov_x_y(distance, camera["min_fov_x"], camera["max_fov_x"], camera["min_fov_y"], camera["max_fov_y"], camera["min_dist"], camera["max_dist"])
-        st.success(f"📸 Estimated FOV Width: {fov_h:.2f} mm")
-        st.success(f"📸 Estimated FOV (X: Horizontal) = {fov_x:.2f} mm")
-        st.success(f"📸 Estimated FOV (Y: Vertical) = {fov_y:.2f} mm")
+    # Calculate FOV based on the entered distance
+    fov_x_at_dist = linear_interpolation(
+        current_distance, camera["min_dist"], camera["max_dist"],
+        camera["min_fov_x"], camera["max_fov_x"]
+    )
+    fov_y_at_dist = linear_interpolation(
+        current_distance, camera["min_dist"], camera["max_dist"],
+        camera["min_fov_y"], camera["max_fov_y"]
+    )
 
-    # Resolution Calculation
-    fov_h = st.number_input("Enter Actual FOV Width (mm) for Resolution Calculation:", min_value=camera["min_fov_x"], max_value=camera["max_fov_x"], value=100, step=5)
-    resolution_mm, resolution_px = calculate_resolution(fov_h)
+    st.subheader("📸 Estimated Field of View (FoV) at current distance:")
+    st.info(f"**Horizontal (X):** {fov_x_at_dist:.2f} mm")
+    st.info(f"**Vertical (Y):** {fov_y_at_dist:.2f} mm")
 
-    st.write("### 🔬 Resolution Results:")
-    st.success(f"🖥️ Resolution (mm per pixel): {resolution_mm:.4f} mm/px")
-    st.success(f"📊 Resolution (pixels per mm): {resolution_px:.2f} px/mm")
+    st.subheader("🔬 Resolution Results at current distance:")
+    res_mm_h, res_px_h = calculate_resolution_metrics(fov_x_at_dist, camera["resolution_h"])
+    res_mm_v, res_px_v = calculate_resolution_metrics(fov_y_at_dist, camera["resolution_v"])
 
+    st.success(f"**Horizontal Resolution:**")
+    st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;**{res_mm_h:.4f} mm/px** (Millimeters per pixel)")
+    st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;**{res_px_h:.2f} px/mm** (Pixels per millimeter)")
+
+    st.success(f"**Vertical Resolution:**")
+    st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;**{res_mm_v:.4f} mm/px** (Millimeters per pixel)")
+    st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;**{res_px_v:.2f} px/mm** (Pixels per millimeter)")
+
+
+    st.markdown("---") # Separator for better visual grouping
+
+    # Option to calculate required distance for a target FOV
+    st.subheader("🎯 Calculate Mounting Distance for a Target FOV:")
+    target_fov_enable = st.checkbox("Enable Target FOV Calculation")
+    if target_fov_enable:
+        target_fov_h = st.number_input(
+            "Enter Desired Horizontal FOV (mm):",
+            min_value=camera["min_fov_x"],
+            max_value=camera["max_fov_x"],
+            value=camera["min_fov_x"],
+            step=5,
+            help=f"Specify the desired horizontal field of view. Min: {camera['min_fov_x']}mm, Max: {camera['max_fov_x']}mm."
+        )
+        # Calculate distance by reversing the interpolation
+        # Using a more robust approach for inverse interpolation or a dedicated function
+        if (camera["max_fov_x"] - camera["min_fov_x"]) != 0:
+            estimated_distance = linear_interpolation(
+                target_fov_h, camera["min_fov_x"], camera["max_fov_x"],
+                camera["min_dist"], camera["max_dist"]
+            )
+            st.info(f"📏 **Required Mounting Distance for {target_fov_h}mm Horizontal FOV:** {estimated_distance:.2f} mm")
+        else:
+            st.warning("Cannot calculate mounting distance for this FOV range (min_fov_x == max_fov_x).")
+
+
+    # Camera Specifications as an Expander
     if "specs" in camera:
-        st.write("### 📋 Camera Specifications:")
-        df = pd.DataFrame(camera["specs"].items(), columns=["Specification", "Value"])
-        st.table(df)
+        with st.expander("📋 View Camera Specifications"):
+            df = pd.DataFrame(camera["specs"].items(), columns=["Specification", "Value"])
+            st.table(df)
 
 with col2:
+    st.header("Camera Model")
     # Display Camera Image
-    image_path = os.path.join(os.getcwd(), "Pictures", camera["image"])
-    
+    image_path = os.path.join(os.getcwd(), PICTURES_FOLDER, camera["image"])
+
     if not os.path.exists(image_path):
-        st.error(image_path)
-        st.error("Error loading image. Make sure the file exists in the 'Pictures/' folder and is accessible. - {image_path}")
+        st.error(f"Error loading image. Please ensure '{camera['image']}' is in the '{PICTURES_FOLDER}/' folder.")
     else:
         try:
             image = Image.open(image_path)
-            st.image(image, caption=f"{display_camera} Camera", width=250)
+            st.image(image, caption=f"{display_camera} Camera", use_column_width=True) # Use_column_width for better scaling
         except Exception as e:
-            st.error(f"Error displaying image: {e}")
+            st.error(f"Failed to display image. Error: {e}")
 
 # Add some space before footer to ensure content isn't hidden
 st.markdown("<div style='margin-bottom:50px;'></div>", unsafe_allow_html=True)
