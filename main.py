@@ -5,8 +5,6 @@ import pandas as pd
 
 # Define constants for better readability and maintainability
 PICTURES_FOLDER = "Pictures"
-IMAGE_WIDTH_DEFAULT = 1280 # Default for H resolution
-IMAGE_HEIGHT_DEFAULT = 960  # Default for V resolution
 
 # --- Calculation Functions ---
 
@@ -19,12 +17,13 @@ def calculate_resolution_metrics(fov_mm, pixel_dimension):
     return resolution_mm_per_pixel, resolution_pixels_per_mm
 
 def linear_interpolation(value, min_val_in, max_val_in, min_val_out, max_val_out):
-    """Performs linear interpolation."""
+    """Performs linear interpolation.
+    Value should be clamped before calling this function if outside input range.
+    """
     if (max_val_in - min_val_in) == 0:
-        return min_val_out # Avoid division by zero, return min_val_out if range is zero
-    
-    # Clamp the input value to stay within the known range
-    value = max(min_val_in, min(max_val_in, value))
+        # If the input range is zero (e.g., min_fov_x == max_fov_x),
+        # return the min_val_out (or an appropriate default)
+        return min_val_out
     
     # Calculate the interpolated value
     return min_val_out + (value - min_val_in) * (max_val_out - min_val_out) / (max_val_in - min_val_in)
@@ -122,23 +121,26 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.header("Calculations")
 
-    # Primary Input: Mounting Distance
+    # Primary Input: Mounting Distance for FOV & Resolution Calculations
     current_distance = st.number_input(
-        "Enter Mounting Distance (mm) for FOV & Resolution calculations:",
+        "Enter Current Mounting Distance (mm):",
         min_value=camera["min_dist"],
         max_value=camera["max_dist"],
         value=100, # Default to 100mm as per your initial request
         step=5,
-        help=f"Enter the distance from the camera to the target. Min: {camera['min_dist']}mm, Max: {camera['max_dist']}mm."
+        help=f"Enter the actual distance from the camera to the target. Min: {camera['min_dist']}mm, Max: {camera['max_dist']}mm."
     )
+
+    # Clamp the current_distance to ensure it's within the camera's operating range
+    current_distance_clamped = max(camera["min_dist"], min(camera["max_dist"], current_distance))
 
     # Calculate FOV based on the entered distance
     fov_x_at_dist = linear_interpolation(
-        current_distance, camera["min_dist"], camera["max_dist"],
+        current_distance_clamped, camera["min_dist"], camera["max_dist"],
         camera["min_fov_x"], camera["max_fov_x"]
     )
     fov_y_at_dist = linear_interpolation(
-        current_distance, camera["min_dist"], camera["max_dist"],
+        current_distance_clamped, camera["min_dist"], camera["max_dist"],
         camera["min_fov_y"], camera["max_fov_y"]
     )
 
@@ -150,39 +152,56 @@ with col1:
     res_mm_h, res_px_h = calculate_resolution_metrics(fov_x_at_dist, camera["resolution_h"])
     res_mm_v, res_px_v = calculate_resolution_metrics(fov_y_at_dist, camera["resolution_v"])
 
-    st.success(f"**Horizontal Resolution:**")
+    st.success(f"**Horizontal Resolution (aligned with H FOV):**")
     st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;**{res_mm_h:.4f} mm/px** (Millimeters per pixel)")
     st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;**{res_px_h:.2f} px/mm** (Pixels per millimeter)")
 
-    st.success(f"**Vertical Resolution:**")
+    st.success(f"**Vertical Resolution (aligned with V FOV):**")
     st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;**{res_mm_v:.4f} mm/px** (Millimeters per pixel)")
     st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;**{res_px_v:.2f} px/mm** (Pixels per millimeter)")
 
 
     st.markdown("---") # Separator for better visual grouping
 
-    # Option to calculate required distance for a target FOV
+    # Option to calculate required distance for a target FOV (for both H and V)
     st.subheader("🎯 Calculate Mounting Distance for a Target FOV:")
-    target_fov_enable = st.checkbox("Enable Target FOV Calculation")
+    target_fov_enable = st.checkbox("Enable Target FOV Calculation Mode")
     if target_fov_enable:
+        st.info("Enter your desired FOV dimensions below. The tool will calculate the mounting distance required for *each* dimension independently.")
+        
+        # Target Horizontal FOV input
         target_fov_h = st.number_input(
-            "Enter Desired Horizontal FOV (mm):",
+            "Enter Desired Horizontal FOV (mm) for Distance Calculation:",
             min_value=camera["min_fov_x"],
             max_value=camera["max_fov_x"],
-            value=camera["min_fov_x"],
+            value=camera["min_fov_x"], # Default to min FOV
             step=5,
             help=f"Specify the desired horizontal field of view. Min: {camera['min_fov_x']}mm, Max: {camera['max_fov_x']}mm."
         )
-        # Calculate distance by reversing the interpolation
-        # Using a more robust approach for inverse interpolation or a dedicated function
-        if (camera["max_fov_x"] - camera["min_fov_x"]) != 0:
-            estimated_distance = linear_interpolation(
-                target_fov_h, camera["min_fov_x"], camera["max_fov_x"],
-                camera["min_dist"], camera["max_dist"]
-            )
-            st.info(f"📏 **Required Mounting Distance for {target_fov_h}mm Horizontal FOV:** {estimated_distance:.2f} mm")
-        else:
-            st.warning("Cannot calculate mounting distance for this FOV range (min_fov_x == max_fov_x).")
+        # Calculate distance for Target Horizontal FOV
+        estimated_distance_h = linear_interpolation(
+            target_fov_h, camera["min_fov_x"], camera["max_fov_x"],
+            camera["min_dist"], camera["max_dist"]
+        )
+        st.success(f"📏 **Distance for {target_fov_h}mm Horizontal FOV:** {estimated_distance_h:.2f} mm")
+
+        st.markdown("<br>", unsafe_allow_html=True) # Add a small gap
+
+        # Target Vertical FOV input
+        target_fov_y = st.number_input(
+            "Enter Desired Vertical FOV (mm) for Distance Calculation:",
+            min_value=camera["min_fov_y"],
+            max_value=camera["max_fov_y"],
+            value=camera["min_fov_y"], # Default to min FOV
+            step=5,
+            help=f"Specify the desired vertical field of view. Min: {camera['min_fov_y']}mm, Max: {camera['max_fov_y']}mm."
+        )
+        # Calculate distance for Target Vertical FOV
+        estimated_distance_y = linear_interpolation(
+            target_fov_y, camera["min_fov_y"], camera["max_fov_y"],
+            camera["min_dist"], camera["max_dist"]
+        )
+        st.success(f"📏 **Distance for {target_fov_y}mm Vertical FOV:** {estimated_distance_y:.2f} mm")
 
 
     # Camera Specifications as an Expander
