@@ -17,17 +17,19 @@ def calculate_resolution_metrics(fov_mm, pixel_dimension):
     return resolution_mm_per_pixel, resolution_pixels_per_mm
 
 def linear_interpolation(value, min_val_in, max_val_in, min_val_out, max_val_out):
-    """Performs linear interpolation."""
+    """Performs linear interpolation.
+    Value should be clamped before calling this function if outside input range.
+    """
     if (max_val_in - min_val_in) == 0:
-        return min_val_out # Avoid division by zero, return min_val_out if range is zero
-    
-    # Clamp the input value to stay within the known range
-    value = max(min_val_in, min(max_val_in, value))
+        # If the input range is zero (e.g., min_fov_x == max_fov_x),
+        # return the min_val_out (or an appropriate default)
+        return min_val_out
     
     # Calculate the interpolated value
     return min_val_out + (value - min_val_in) * (max_val_out - min_val_out) / (max_val_in - min_val_in)
 
 # --- Camera Data ---
+# Use st.cache_data to cache this dictionary as it's static
 @st.cache_data
 def get_camera_data():
     return {
@@ -36,26 +38,26 @@ def get_camera_data():
             "min_fov_x": 22, "max_fov_x": 1184,
             "min_fov_y": 16, "max_fov_y": 888,
             "min_dist": 50, "max_dist": 3000,
-            "resolution_h": 1280,
+            "resolution_h": 1280, # Explicitly add resolution dimensions
             "resolution_v": 960,
             "specs": {
-                 "Type": "Standard",
-                 "Installed Distance": "50 mm or more",
-                 "Field of View (50 mm)": "22 (H) × 16 (V) mm",
-                 "Field of View (3000 mm)": "1184 (H) × 888 (V) mm",
-                 "Image Sensor": "1/2.9 inch colour CMOS",
-                 "Resolution": "1280 (H) × 960 (V)",
-                 "Focus Adjustment": "Auto",
-                 "Exposure Time": "12 μs to 9 ms",
-                 "Illumination": "White LED",
-                 "Lighting Method": "Pulse /continuous lighting is switchable",
-                 "Enclosure Rating": "IP67",
-                 "Temperature Range": "0 to +50°C (No freezing)",
-                 "Relative Humidity": "35 to 85% RH (No condensation)",
-                 "Vibration Resistance": "10 to 55 Hz; double amplitude 1.5 mm, 2 hours in each direction",
-                 "Shock Resistance": "500 m/s², 3 times in each of the 6 directions",
-                 "Material": "Main unit case: Zinc die-casting, Front cover: Acrylic, Operation indicator cover: TPU",
-                 "Weight": "Approx. 75 g (without AI Lighting), Approx. 225 g (with AI Lighting)"
+                "Type": "Standard",
+                "Installed Distance": "50 mm or more",
+                "Field of View (50 mm)": "22 (H) × 16 (V) mm",
+                "Field of View (3000 mm)": "1184 (H) × 888 (V) mm",
+                "Image Sensor": "1/2.9 inch colour CMOS",
+                "Resolution": "1280 (H) × 960 (V)",
+                "Focus Adjustment": "Auto",
+                "Exposure Time": "12 μs to 9 ms",
+                "Illumination": "White LED",
+                "Lighting Method": "Pulse /continuous lighting is switchable",
+                "Enclosure Rating": "IP67",
+                "Temperature Range": "0 to +50°C (No freezing)",
+                "Relative Humidity": "35 to 85% RH (No condensation)",
+                "Vibration Resistance": "10 to 55 Hz; double amplitude 1.5 mm, 2 hours in each direction",
+                "Shock Resistance": "500 m/s², 3 times in each of the 6 directions",
+                "Material": "Main unit case: Zinc die-casting, Front cover: Acrylic, Operation indicator cover: TPU",
+                "Weight": "Approx. 75 g (without AI Lighting), Approx. 225 g (with AI Lighting)"
             }
         },
         "IV3-G600MA": {
@@ -63,7 +65,7 @@ def get_camera_data():
             "min_fov_x": 51, "max_fov_x": 2730,
             "min_fov_y": 38, "max_fov_y": 2044,
             "min_dist": 50, "max_dist": 3000,
-            "resolution_h": 1280,
+            "resolution_h": 1280, # Explicitly add resolution dimensions
             "resolution_v": 960,
             "specs": {
                 "Type": "Wide view",
@@ -114,13 +116,6 @@ cameras = get_camera_data()
 display_camera = st.selectbox("Select Camera Model:", list(cameras.keys()))
 camera = cameras[display_camera]
 
-# Calculate the pixel aspect ratio for the selected camera
-# This is used to maintain aspect ratio when one FOV is changed
-if camera["resolution_v"] != 0:
-    pixel_aspect_ratio = camera["resolution_h"] / camera["resolution_v"]
-else:
-    pixel_aspect_ratio = 1.0 # Default to 1:1 if vertical resolution is zero (shouldn't happen)
-
 col1, col2 = st.columns([2, 1])
 
 with col1:
@@ -131,7 +126,7 @@ with col1:
         "Enter Current Mounting Distance (mm):",
         min_value=camera["min_dist"],
         max_value=camera["max_dist"],
-        value=100,
+        value=100, # Default to 100mm as per your initial request
         step=5,
         help=f"Enter the actual distance from the camera to the target. Min: {camera['min_dist']}mm, Max: {camera['max_dist']}mm."
     )
@@ -171,82 +166,42 @@ with col1:
     # Option to calculate required distance for a target FOV (for both H and V)
     st.subheader("🎯 Calculate Mounting Distance for a Target FOV:")
     target_fov_enable = st.checkbox("Enable Target FOV Calculation Mode")
-
     if target_fov_enable:
-        st.info("Enter your desired FOV for one dimension. The other dimension will update automatically based on the camera's aspect ratio.")
+        st.info("Enter your desired FOV dimensions below. The tool will calculate the mounting distance required for *each* dimension independently.")
         
-        # Initialize session state for target FOVs if not already present
-        if 'target_fov_h_input' not in st.session_state:
-            st.session_state.target_fov_h_input = camera["min_fov_x"]
-        if 'target_fov_y_input' not in st.session_state:
-            st.session_state.target_fov_y_input = camera["min_fov_y"]
-        
-        # Callback to update vertical FOV when horizontal is changed
-        def update_vertical_from_horizontal():
-            if 'target_fov_h_input' in st.session_state:
-                new_h = st.session_state.target_fov_h_input
-                # Calculate corresponding vertical FOV
-                new_y = new_h / pixel_aspect_ratio
-                # Clamp to camera's min/max vertical FOV range
-                st.session_state.target_fov_y_input = max(camera["min_fov_y"], min(camera["max_fov_y"], new_y))
-
-        # Callback to update horizontal FOV when vertical is changed
-        def update_horizontal_from_vertical():
-            if 'target_fov_y_input' in st.session_state:
-                new_y = st.session_state.target_fov_y_input
-                # Calculate corresponding horizontal FOV
-                new_h = new_y * pixel_aspect_ratio
-                # Clamp to camera's min/max horizontal FOV range
-                st.session_state.target_fov_h_input = max(camera["min_fov_x"], min(camera["max_fov_x"], new_h))
-
-        # Allow user to choose which FOV they want to input directly
-        primary_input_choice = st.radio(
-            "Which FOV do you want to set?",
-            ("Horizontal FOV", "Vertical FOV"),
-            key="primary_fov_choice"
+        # Target Horizontal FOV input
+        target_fov_h = st.number_input(
+            "Enter Desired Horizontal FOV (mm) for Distance Calculation:",
+            min_value=camera["min_fov_x"],
+            max_value=camera["max_fov_x"],
+            value=camera["min_fov_x"], # Default to min FOV
+            step=5,
+            help=f"Specify the desired horizontal field of view. Min: {camera['min_fov_x']}mm, Max: {camera['max_fov_x']}mm."
         )
-
-        if primary_input_choice == "Horizontal FOV":
-            st.number_input(
-                "Desired Horizontal FOV (mm):",
-                min_value=camera["min_fov_x"],
-                max_value=camera["max_fov_x"],
-                value=st.session_state.target_fov_h_input,
-                step=5,
-                key="target_fov_h_input", # Link to session state
-                on_change=update_vertical_from_horizontal, # Call this when input changes
-                help=f"Set the desired horizontal field of view. The vertical FOV will adjust automatically. Min: {camera['min_fov_x']}mm, Max: {camera['max_fov_x']}mm."
-            )
-            # Display the automatically updated vertical FOV
-            st.info(f"**Corresponding Vertical FOV (Y):** {st.session_state.target_fov_y_input:.2f} mm (auto-calculated)")
-        else: # primary_input_choice == "Vertical FOV"
-            st.number_input(
-                "Desired Vertical FOV (mm):",
-                min_value=camera["min_fov_y"],
-                max_value=camera["max_fov_y"],
-                value=st.session_state.target_fov_y_input,
-                step=5,
-                key="target_fov_y_input", # Link to session state
-                on_change=update_horizontal_from_vertical, # Call this when input changes
-                help=f"Set the desired vertical field of view. The horizontal FOV will adjust automatically. Min: {camera['min_fov_y']}mm, Max: {camera['max_fov_y']}mm."
-            )
-            # Display the automatically updated horizontal FOV
-            st.info(f"**Corresponding Horizontal FOV (X):** {st.session_state.target_fov_h_input:.2f} mm (auto-calculated)")
-
-        # Display the calculated mounting distances for both FOVs (based on session state values)
         # Calculate distance for Target Horizontal FOV
         estimated_distance_h = linear_interpolation(
-            st.session_state.target_fov_h_input, camera["min_fov_x"], camera["max_fov_x"],
+            target_fov_h, camera["min_fov_x"], camera["max_fov_x"],
             camera["min_dist"], camera["max_dist"]
         )
-        st.success(f"📏 **Distance for {st.session_state.target_fov_h_input:.2f}mm Horizontal FOV:** {estimated_distance_h:.2f} mm")
+        st.success(f"📏 **Distance for {target_fov_h}mm Horizontal FOV:** {estimated_distance_h:.2f} mm")
 
+        st.markdown("<br>", unsafe_allow_html=True) # Add a small gap
+
+        # Target Vertical FOV input
+        target_fov_y = st.number_input(
+            "Enter Desired Vertical FOV (mm) for Distance Calculation:",
+            min_value=camera["min_fov_y"],
+            max_value=camera["max_fov_y"],
+            value=camera["min_fov_y"], # Default to min FOV
+            step=5,
+            help=f"Specify the desired vertical field of view. Min: {camera['min_fov_y']}mm, Max: {camera['max_fov_y']}mm."
+        )
         # Calculate distance for Target Vertical FOV
         estimated_distance_y = linear_interpolation(
-            st.session_state.target_fov_y_input, camera["min_fov_y"], camera["max_fov_y"],
+            target_fov_y, camera["min_fov_y"], camera["max_fov_y"],
             camera["min_dist"], camera["max_dist"]
         )
-        st.success(f"📏 **Distance for {st.session_state.target_fov_y_input:.2f}mm Vertical FOV:** {estimated_distance_y:.2f} mm")
+        st.success(f"📏 **Distance for {target_fov_y}mm Vertical FOV:** {estimated_distance_y:.2f} mm")
 
 
     # Camera Specifications as an Expander
