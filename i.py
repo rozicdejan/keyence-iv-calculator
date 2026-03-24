@@ -61,6 +61,35 @@ cameras = {
             "Shock Resistance": "500 m/s², 3 times in each direction",
             "Weight": "Approx. 75 g (without AI Lighting)"
         }
+    },
+    "IV3-400CA": {
+        "image": "iv3.png",
+        "min_fov_x": 58, "max_fov_x": 464,
+        "min_fov_y": 44, "max_fov_y": 348,
+        "min_dist": 400, "max_dist": 3000,
+        "specs": {
+            "Type": "Narrow view",
+            "Installed Distance": "400 mm or more",
+            "Field of View (400 mm)": "58 (H) × 44 (V) mm",
+            "Field of View (3000 mm)": "464 (H) × 348 (V) mm",
+            "Image Sensor": "1/2.9 inch colour CMOS",
+            "Resolution": "1280 (H) × 960 (V)",
+            "Focus Adjustment": "Auto",
+            "Exposure Time": "12 μs to 10 ms",
+            "Illumination": "White LED",
+            "Lighting Method": "Pulse lighting / continuously lighting is switchable",
+            "Available Modes": "Standard mode / Sorting mode",
+            "Number of Tools": "Total: 65 tools",
+            "Programs": "128 programs (with SD card) / 32 programs (without SD card)",
+            "Ethernet": "1000BASE-T / 100BASE-TX",
+            "Network": "EtherNet/IP, PROFINET, TCP/IP non-procedure communication",
+            "Enclosure Rating": "IP67",
+            "Temperature Range": "0 to +50°C (No freezing)",
+            "Relative Humidity": "35 to 85% RH (No condensation)",
+            "Vibration Resistance": "10 to 55 Hz; double amplitude 1.5 mm; 2 hours in X, Y, Z directions",
+            "Shock Resistance": "500 m/s², 3 times in each of the 6 directions",
+            "Weight": "Approx. 300 g (without AI Lighting unit) / Approx. 495 g (with AI Lighting unit)"
+        }
     }
 }
 
