@@ -1470,7 +1470,7 @@ with reports_tab:
         st.markdown('<div class="panel-title">Generate engineering PDF report</div>', unsafe_allow_html=True)
         extra_notes = st.text_area("Additional notes", height=110, value="")
 
-                recommended_range_text = (
+        recommended_range_text = (
             f"{range_info['min']} to {range_info['max']} mm" if range_info["valid"] else "No full pass range"
         )
 
