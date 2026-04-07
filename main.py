@@ -14,7 +14,7 @@ from report_generator import generate_excel_log, generate_pdf_report
 PICTURES_FOLDER = "Pictures"
 
 st.set_page_config(
-    page_title="Keyence IV3 Camera Calculator",
+    page_title="Keyence IV3/IV4 Camera Calculator",
     layout="wide",
     page_icon="🔍",
     initial_sidebar_state="expanded",
@@ -96,6 +96,121 @@ st.markdown(
     [data-testid="stSlider"] label {
         font-size: 0.8rem !important; font-weight: 600 !important; color: #444 !important;
     }
+
+    /* Specs Table Styling */
+    .specs-table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin: 20px 0;
+    }
+    .specs-table-header {
+        background: linear-gradient(135deg, #c41e3a 0%, #8b0000 100%);
+        color: white;
+        padding: 16px 20px;
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    .specs-category-header {
+        background: #f5f5f5;
+        color: #333;
+        padding: 12px 16px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        border-bottom: 2px solid #ddd;
+    }
+    .specs-row {
+        display: flex;
+        border-bottom: 1px solid #eee;
+        min-height: 40px;
+    }
+    .specs-row:hover {
+        background: #fafafa;
+    }
+    .specs-label {
+        flex: 0 0 200px;
+        background: #fafafa;
+        padding: 12px 16px;
+        font-weight: 500;
+        color: #555;
+        font-size: 0.85rem;
+        border-right: 1px solid #eee;
+    }
+    .specs-sublabel {
+        flex: 0 0 180px;
+        background: #f9f9f9;
+        padding: 12px 16px;
+        font-weight: 400;
+        color: #666;
+        font-size: 0.8rem;
+        border-right: 1px solid #eee;
+        padding-left: 30px;
+    }
+    .specs-value {
+        flex: 1;
+        padding: 12px 16px;
+        font-size: 0.85rem;
+        color: #333;
+    }
+    .specs-value-narrow {
+        flex: 0 0 140px;
+        padding: 12px 16px;
+        font-size: 0.85rem;
+        color: #333;
+        text-align: center;
+        border-right: 1px solid #eee;
+    }
+    .specs-value-narrow:last-child {
+        border-right: none;
+    }
+    .model-header {
+        background: #2c3e50;
+        color: white;
+        padding: 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: center;
+        flex: 0 0 140px;
+        border-right: 1px solid #444;
+    }
+    .model-header:last-child {
+        border-right: none;
+    }
+    .download-btn {
+        background: #c41e3a;
+        color: white;
+        padding: 6px 14px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .type-badge-narrow {
+        background: #e3f2fd;
+        color: #1565c0;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .type-badge-standard {
+        background: #e8f5e9;
+        color: #2e7d32;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .type-badge-wide {
+        background: #fff3e0;
+        color: #ef6c00;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -149,7 +264,7 @@ def log_calculation(label: str, data: dict):
 
 
 # ─────────────────────────────────────────────
-# CAMERA DATA
+# CAMERA DATA - IV3 Series (for calculator)
 # ─────────────────────────────────────────────
 @st.cache_data
 def get_camera_data():
@@ -230,6 +345,97 @@ def get_camera_data():
 
 
 # ─────────────────────────────────────────────
+# IV4 SMART CAMERA FULL SPECS DATA
+# ─────────────────────────────────────────────
+@st.cache_data
+def get_iv4_specs_data():
+    """Complete IV4 Smart Camera specifications data for comparison table"""
+    return {
+        "models": ["IV4-400CA", "IV4-400MA", "IV4-500CA", "IV4-500MA", "IV4-600CA", "IV4-600MA"],
+        "categories": {
+            "Basic Information": {
+                "Type": [
+                    "<span class='type-badge-narrow'>Narrow field of view</span>",
+                    "<span class='type-badge-narrow'>Narrow field of view</span>",
+                    "<span class='type-badge-standard'>Standard model</span>",
+                    "<span class='type-badge-standard'>Standard model</span>",
+                    "<span class='type-badge-wide'>Wide field of view</span>",
+                    "<span class='type-badge-wide'>Wide field of view</span>"
+                ],
+                "Installed distance": [
+                    "From 400 mm *1", "From 400 mm *1",
+                    "From 50 mm *1", "From 50 mm *1",
+                    "From 50 mm *1", "From 50 mm *1"
+                ]
+            },
+            "Tools": {
+                "Available modes": "Standard Mode, Sorting Mode, AI Through Count Mode",
+                "Available Tool": "Standard/Sorting Modes: AI Differentiate, Outline, Colour Area *2, Area *3, Edge Pixels, Colour Average *2, Brightness Avg *3, Width, Diameter, Edge Presence, Pitch, Colour Prohibit, Position Adjustment, Hi-Sp. Adj (1-axis/2-axis), Blob Count, AI Identify, AI Count, Total, AI OCR, AI Trigger<br>AI Through Count Mode: Count, Total",
+                "Number of tools": "65 tools *4"
+            },
+            "Field of view": {
+                "FOV specs": [
+                    "Installation distance 400 mm: 58 (H) × 44 (V) mm to Installation distance 3000 mm: 464 (H) × 348 (V) mm (reference value)",
+                    "Installation distance 400 mm: 58 (H) × 44 (V) mm to Installation distance 3000 mm: 464 (H) × 348 (V) mm (reference value)",
+                    "Installation distance 50 mm: 22 (H) × 16 (V) mm to Installation distance 3000 mm: 1184 (H) × 888 (V) mm (reference value)",
+                    "Installation distance 50 mm: 22 (H) × 16 (V) mm to Installation distance 3000 mm: 1184 (H) × 888 (V) mm (reference value)",
+                    "Installation distance 50 mm: 51 (H) × 38 (V) mm to Installation distance 3000 mm: 2730 (H) × 2044 (V) mm (reference value)",
+                    "Installation distance 50 mm: 51 (H) × 38 (V) mm to Installation distance 3000 mm: 2730 (H) × 2044 (V) mm (reference value)"
+                ]
+            },
+            "Settings": {
+                "Switch settings (programs)": "128 programs (with SD card)/32 programs (without SD card)"
+            },
+            "Image receiving element": {
+                "Type": [
+                    '1/2.9 inch colour CMOS',
+                    '1/2.9 inch monochrome CMOS',
+                    '1/2.9 inch colour CMOS',
+                    '1/2.9 inch monochrome CMOS',
+                    '1/2.9 inch colour CMOS',
+                    '1/2.9 inch monochrome CMOS'
+                ],
+                "Number of pixels": "1280 (H) × 960 (V)"
+            },
+            "Image history": {
+                "Number of storable images": "100 images *5",
+                "Save conditions": "Logging Settings 1: NG only/OK near NG threshold *6/All – selectable. Logging Settings 2: Manually configured number before/after NG/Fixed interval – selectable *5"
+            },
+            "Focus adjustment": {
+                "Focus": "Auto *7"
+            },
+            "Image data transfer": {
+                "Transfer destination": "microSD card/FTP server/SFTP server – selectable",
+                "Transfer format": "BMP/JPEG/iv4p/txt: Selectable, file name can be changed",
+                "Transfer conditions": "OK/NG/NG and OK near threshold *6/OK near threshold *6/All/Judgement Complete – selectable"
+            },
+            "Exposure time": {
+                "Exposure": "12 μs to 10 ms *8"
+            },
+            "Analysis information": {
+                "RUN display": "Tool-specific list (judgement results, match, match bar display) *9",
+                "RUN information": "Switchable between OFF/histogram/processing time/count/output monitor<br>Histogram: Histogram, match (MAX, MIN, AVG), OKs, NGs<br>Processing time: Processing time (latest value, MAX, MIN, AVG), cap. time (latest value, MAX, MIN, AVG)<br>Count: No. of triggers, OKs, NGs, no. of trigger errors, Output monitor: Output-specific ON/OFF status *9"
+            },
+            "Lights": {
+                "Illumination": ["White LED", "Infrared LED", "White LED", "Infrared LED", "White LED", "Infrared LED"],
+                "Lighting method": ["Switchable between pulse and continuous lighting", "Pulse lighting", "Switchable between pulse and continuous lighting", "Pulse lighting", "Switchable between pulse and continuous lighting", "Pulse lighting"]
+            }
+        },
+        "footnotes": [
+            "*1 If using at 3 m or more, it is recommended that the polarising filter be removed before use.",
+            "*2 Colour type only.",
+            "*3 Monochrome type only.",
+            "*4 Can be placed on a program-specific basis. This is the total combined number of differentiation tools and position adjustment tools. Up to 64 differentiation tools can be placed. Up to 16 AI Count/AI OCR tools can be placed.",
+            "*5 Saved to the sensor's internal memory.",
+            "*6 AI Differentiate, AI Identify, AI OCR (Show Matching Rate) only.",
+            "*7 Focus position can be automatically adjusted during installation. It cannot be adjusted while running.",
+            "*8 Maximum exposure time is 500 ms only when lighting is set to OFF.",
+            "*9 Can be displayed on the control panel (IV4-CP70) or Display Expansion Unit (IV4-DU10), or via PC software (IV-H1SN)."
+        ]
+    }
+
+
+# ─────────────────────────────────────────────
 # SESSION STATE INIT
 # ─────────────────────────────────────────────
 if "history" not in st.session_state:
@@ -242,7 +448,7 @@ if "history" not in st.session_state:
 cameras     = get_camera_data()
 
 with st.sidebar:
-    st.markdown("### 🔍 Keyence IV3 Series")
+    st.markdown("### 🔍 Keyence IV3/IV4 Series")
     st.markdown("---")
     camera_name = st.selectbox("Camera Model", list(cameras.keys()))
     cam         = cameras[camera_name]
@@ -276,7 +482,7 @@ with st.sidebar:
 # ─────────────────────────────────────────────
 # MAIN HEADER
 # ─────────────────────────────────────────────
-st.title("🔍 Keyence IV3 Camera Calculator")
+st.title("🔍 Keyence IV3/IV4 Camera Calculator")
 st.markdown(
     f"<span style='color:#888;font-size:0.9rem;'>Active: <b>{camera_name}</b> — "
     f"{cam['resolution_h']}×{cam['resolution_v']} px&nbsp;|&nbsp;"
@@ -289,11 +495,12 @@ st.markdown("")
 # ─────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📐 FOV & Distance",
-    "🔲 ROI Analysis",
+    "🔲 ROI Analysis", 
     "🎯 Feature Detection",
     "⚖️ Compare Cameras",
+    "📋 Full Specs Table",
     "📊 Reports & Export",
 ])
 
@@ -646,9 +853,174 @@ with tab4:
 
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 5 — Reports & Export
+# TAB 5 — Full Specs Table (NEW - Like Keyence Website)
 # ══════════════════════════════════════════════════════════════════
 with tab5:
+    st.markdown("### 📋 IV4 Series Smart Camera - Complete Specifications")
+    st.markdown("<span style='color:#666;'>Full comparison table as shown on Keyence official website</span>", unsafe_allow_html=True)
+
+    iv4_data = get_iv4_specs_data()
+    models = iv4_data["models"]
+
+    # Create the comparison table using Streamlit components
+    st.markdown("---")
+
+    # Model headers
+    header_cols = st.columns([2] + [1]*6)
+    with header_cols[0]:
+        st.markdown("**Model**")
+    for i, model in enumerate(models):
+        with header_cols[i+1]:
+            st.markdown(f"**{model}**")
+
+    st.markdown("---")
+
+    # Type row
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Type**")
+    types = iv4_data["categories"]["Basic Information"]["Type"]
+    for i, t in enumerate(types):
+        with row_cols[i+1]:
+            st.markdown(t, unsafe_allow_html=True)
+
+    # Installed distance
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Installed distance**")
+    dists = iv4_data["categories"]["Basic Information"]["Installed distance"]
+    for i, d in enumerate(dists):
+        with row_cols[i+1]:
+            st.markdown(d)
+
+    st.markdown("---")
+    st.markdown("#### 🛠️ Tools")
+
+    # Available modes
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Available modes**")
+    modes = iv4_data["categories"]["Tools"]["Available modes"]
+    for i in range(6):
+        with row_cols[i+1]:
+            st.markdown(modes)
+
+    # Available tools
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Available Tools**")
+    tools = iv4_data["categories"]["Tools"]["Available Tool"]
+    for i in range(6):
+        with row_cols[i+1]:
+            st.markdown(f'<div style="font-size:0.75rem;line-height:1.4;">{tools}</div>', unsafe_allow_html=True)
+
+    # Number of tools
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Number of tools**")
+    num_tools = iv4_data["categories"]["Tools"]["Number of tools"]
+    for i in range(6):
+        with row_cols[i+1]:
+            st.markdown(num_tools)
+
+    st.markdown("---")
+    st.markdown("#### 📐 Field of View")
+
+    # FOV specs
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Field of view**")
+    fovs = iv4_data["categories"]["Field of view"]["FOV specs"]
+    for i, fov in enumerate(fovs):
+        with row_cols[i+1]:
+            st.markdown(f'<div style="font-size:0.75rem;line-height:1.4;">{fov}</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("#### ⚙️ Settings & Image")
+
+    # Programs
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Switch settings (programs)**")
+    progs = iv4_data["categories"]["Settings"]["Switch settings (programs)"]
+    for i in range(6):
+        with row_cols[i+1]:
+            st.markdown(progs)
+
+    # Image sensor type
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Image sensor - Type**")
+    sensor_types = iv4_data["categories"]["Image receiving element"]["Type"]
+    for i, stype in enumerate(sensor_types):
+        with row_cols[i+1]:
+            st.markdown(stype)
+
+    # Pixels
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Number of pixels**")
+    pixels = iv4_data["categories"]["Image receiving element"]["Number of pixels"]
+    for i in range(6):
+        with row_cols[i+1]:
+            st.markdown(pixels)
+
+    st.markdown("---")
+    st.markdown("#### 💾 Image History & Transfer")
+
+    # Storable images
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Storable images**")
+    stor = iv4_data["categories"]["Image history"]["Number of storable images"]
+    for i in range(6):
+        with row_cols[i+1]:
+            st.markdown(stor)
+
+    # Transfer destination
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Transfer destination**")
+    dest = iv4_data["categories"]["Image data transfer"]["Transfer destination"]
+    for i in range(6):
+        with row_cols[i+1]:
+            st.markdown(dest)
+
+    st.markdown("---")
+    st.markdown("#### 💡 Lighting")
+
+    # Illumination
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Illumination**")
+    illum = iv4_data["categories"]["Lights"]["Illumination"]
+    for i, il in enumerate(illum):
+        with row_cols[i+1]:
+            st.markdown(il)
+
+    # Lighting method
+    row_cols = st.columns([2] + [1]*6)
+    with row_cols[0]:
+        st.markdown("**Lighting method**")
+    methods = iv4_data["categories"]["Lights"]["Lighting method"]
+    for i, method in enumerate(methods):
+        with row_cols[i+1]:
+            st.markdown(method)
+
+    st.markdown("---")
+    st.markdown("#### 📝 Footnotes")
+
+    for footnote in iv4_data["footnotes"]:
+        st.markdown(f"<small>{footnote}</small>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.info("💡 **Tip:** Use the calculator tabs to determine which model fits your specific distance and resolution requirements.")
+
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 6 — Reports & Export (was TAB 5)
+# ══════════════════════════════════════════════════════════════════
+with tab6:
 
     # ── Left: PDF Report config ──────────────────────────────────
     col_rep, col_hist = st.columns([1, 1], gap="large")
@@ -816,6 +1188,6 @@ with tab5:
 # ─────────────────────────────────────────────
 st.markdown("<div style='margin-bottom:50px;'></div>", unsafe_allow_html=True)
 st.markdown(
-    '<div class="footer">Keyence IV3 Camera Calculator&nbsp;·&nbsp;Made by Dejan Rožič</div>',
+    '<div class="footer">Keyence IV3/IV4 Camera Calculator&nbsp;·&nbsp;Made by Dejan Rožič</div>',
     unsafe_allow_html=True,
 )
